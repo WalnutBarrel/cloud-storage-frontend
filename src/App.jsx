@@ -124,6 +124,23 @@ export default function App() {
     loadFiles(currentFolder?.id || null);
   };
 
+  const bulkDelete = async () => {
+  if (selected.length === 0) {
+    alert("Select files first");
+    return;
+  }
+
+  if (!confirm(`Delete ${selected.length} files?`)) return;
+
+  for (let id of selected) {
+    await axios.delete(`${API}/files/${id}/`);
+  }
+
+  setSelected([]);
+  loadFiles(currentFolder?.id || null);
+};
+
+
   /* RENAME FILE */
   const renameFile = async (id) => {
     const newName = prompt("New name?");
@@ -245,10 +262,20 @@ export default function App() {
 
       {/* MULTI DOWNLOAD BUTTON */}
       {selected.length > 0 && (
-        <button onClick={downloadZip}>
-          Download {selected.length} files as ZIP
-        </button>
-      )}
+  <div style={{ marginBottom: 10 }}>
+    <button onClick={downloadZip}>
+      Download {selected.length} files as ZIP
+    </button>
+
+    <button
+      onClick={bulkDelete}
+      style={{ marginLeft: 10, color: "red" }}
+    >
+      Delete {selected.length} files
+    </button>
+  </div>
+)}
+
 
       <hr />
 
