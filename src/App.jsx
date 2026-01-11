@@ -72,6 +72,11 @@ export default function App() {
     );
   };
 
+  const downloadFile = (id) => {
+  window.location.href = `${API}/files/${id}/download/`;
+};
+
+
   /* DOWNLOAD ZIP */
   const downloadZip = async () => {
     if (selected.length === 0) {
@@ -410,8 +415,10 @@ export default function App() {
 
 
   <button onClick={() => window.open(f.file)}>Open</button>
+  <button onClick={() => downloadFile(f.id)}>Download</button>
   <button onClick={() => renameFile(f.id)}>Rename</button>
   <button onClick={() => deleteFile(f.id)}>Delete</button>
+
 </div>
 
           );
