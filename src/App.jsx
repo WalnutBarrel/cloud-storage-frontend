@@ -16,6 +16,7 @@ export default function App() {
   const [files, setFiles] = useState([]);
   const [currentFolder, setCurrentFolder] = useState(null);
 
+  const [selected, setSelected] = useState([]);
   const [dragging, setDragging] = useState(false);
   const [newFolder, setNewFolder] = useState("");
   const [progress, setProgress] = useState(0);
@@ -38,6 +39,9 @@ export default function App() {
 
     const total = res.data.reduce((sum, f) => sum + (f.size || 0), 0);
     setTotalSize(total);
+
+    // clear selection when folder changes
+    setSelected([]);
   };
 
   useEffect(() => {
@@ -53,7 +57,38 @@ export default function App() {
     loadFolders();
   };
 
-  /* MULTI UPLOAD (DRAG & DROP OR INPUT) */
+  /* SELECT FILES */
+  const toggleSelect = (id) => {
+    setSelected((prev) =>
+      prev.includes(id)
+        ? prev.filter((x) => x !== id)
+        : [...prev, id]
+    );
+  };
+
+  /* DOWNLOAD ZIP */
+  const downloadZip = async () => {
+    if (selected.length === 0) {
+      alert("Select files first");
+      return;
+    }
+
+    const res = await axios.post(
+      `${API}/files/download-zip/`,
+      { files: selected },
+      { responseType: "blob" }
+    );
+
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "files.zip";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  /* MULTI UPLOAD */
   const uploadFiles = async (filesToUpload) => {
     for (let f of filesToUpload) {
       const formData = new FormData();
@@ -195,6 +230,13 @@ export default function App() {
 
       {progress > 0 && <p>Uploading: {progress}%</p>}
 
+      {/* MULTI DOWNLOAD BUTTON */}
+      {selected.length > 0 && (
+        <button onClick={downloadZip}>
+          Download {selected.length} files as ZIP
+        </button>
+      )}
+
       <hr />
 
       {/* FILE LIST */}
@@ -207,6 +249,13 @@ export default function App() {
 
           return (
             <div key={f.id} style={{ width: 220 }}>
+              {/* SELECT */}
+              <input
+                type="checkbox"
+                checked={selected.includes(f.id)}
+                onChange={() => toggleSelect(f.id)}
+              />
+
               {f.type === "image" && (
                 <img
                   src={preview}
