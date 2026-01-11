@@ -15,7 +15,7 @@ export default function App() {
   const [folders, setFolders] = useState([]);
   const [files, setFiles] = useState([]);
   const [currentFolder, setCurrentFolder] = useState(null);
-
+  const [remaining, setRemaining] = useState(0);
   const [selected, setSelected] = useState([]);
   const [dragging, setDragging] = useState(false);
   const [newFolder, setNewFolder] = useState("");
@@ -90,7 +90,11 @@ export default function App() {
 
   /* MULTI UPLOAD */
   const uploadFiles = async (filesToUpload) => {
-    for (let f of filesToUpload) {
+    setRemaining(filesToUpload.length);
+
+    for (let i = 0; i < filesToUpload.length; i++) {
+      const f = filesToUpload[i];
+
       const formData = new FormData();
       formData.append("file", f);
       formData.append("name", f.name);
@@ -103,11 +107,15 @@ export default function App() {
         onUploadProgress: (e) =>
           setProgress(Math.round((e.loaded * 100) / e.total)),
       });
+
+      // 🔥 DECREASE COUNT AFTER EACH FILE
+      setRemaining((prev) => prev - 1);
     }
 
     setProgress(0);
     loadFiles(currentFolder?.id || null);
   };
+
 
   /* DELETE FILE */
   const deleteFile = async (id) => {
@@ -228,7 +236,12 @@ export default function App() {
         />
       </div>
 
-      {progress > 0 && <p>Uploading: {progress}%</p>}
+      {remaining > 0 && (
+        <p>
+          Uploading… {remaining} file{remaining > 1 ? "s" : ""} remaining
+        </p>
+      )}
+
 
       {/* MULTI DOWNLOAD BUTTON */}
       {selected.length > 0 && (
