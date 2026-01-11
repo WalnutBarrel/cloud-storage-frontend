@@ -23,6 +23,8 @@ export default function App() {
   const [totalSize, setTotalSize] = useState(0);
   const [currentFileName, setCurrentFileName] = useState("");
   const [uploadedCount, setUploadedCount] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(20);
+
 
 
   /* LOAD FOLDERS */
@@ -45,6 +47,7 @@ export default function App() {
 
     // clear selection when folder changes
     setSelected([]);
+    setVisibleCount(20);
   };
 
   useEffect(() => {
@@ -321,7 +324,7 @@ export default function App() {
 
       {/* FILE LIST */}
       <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-        {files.map((f) => {
+        {files.slice(0, visibleCount).map((f) => {
           const preview =
             f.type === "image"
               ? f.file.replace("/upload/", "/upload/f_jpg,q_auto,w_300/")
@@ -339,9 +342,12 @@ export default function App() {
               {f.type === "image" && (
                 <img
                   src={preview}
+                  loading="lazy"          // 👈 THIS IS KEY
+                  decoding="async"
                   style={{ width: "100%", borderRadius: 8 }}
                   onClick={() => window.open(f.file)}
                 />
+
               )}
 
               {f.type === "video" && (
@@ -360,6 +366,14 @@ export default function App() {
             </div>
           );
         })}
+        {visibleCount < files.length && (
+          <button
+            onClick={() => setVisibleCount((c) => c + 20)}
+            style={{ marginTop: 20 }}
+          >
+            Load more ({files.length - visibleCount} remaining)
+          </button>
+        )}
       </div>
     </div>
   );
