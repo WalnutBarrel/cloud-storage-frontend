@@ -94,6 +94,22 @@ export default function App() {
     a.remove();
   };
 
+  const downloadAllImages = async () => {
+  const res = await axios.get(
+    `${API}/files/download-all-images/`,
+    { responseType: "blob" }
+  );
+
+  const url = window.URL.createObjectURL(new Blob([res.data]));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "all_images.zip";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+};
+
+
   /* MULTI UPLOAD */
   const uploadFiles = async (filesToUpload) => {
   setRemaining(filesToUpload.length);
@@ -308,6 +324,10 @@ export default function App() {
 
 
       {/* MULTI DOWNLOAD BUTTON */}
+      <button onClick={downloadAllImages}>
+  Download All Images
+</button>
+
       {selected.length > 0 && (
   <div style={{ marginBottom: 10 }}>
     <button onClick={downloadZip}>
