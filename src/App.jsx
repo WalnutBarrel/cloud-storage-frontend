@@ -327,48 +327,46 @@ export default function App() {
         {files.slice(0, visibleCount).map((f) => {
           const preview =
             f.type === "image"
-              ? f.file.replace("/upload/", "/upload/f_jpg,q_auto,w_300/")
+              ? f.file.replace("/upload/", "/upload/w_300,q_auto/")
               : f.file;
+
 
           return (
             <div key={f.id} style={{ width: 220 }}>
-              {/* SELECT */}
-              <input
-                type="checkbox"
-                checked={selected.includes(f.id)}
-                onChange={() => toggleSelect(f.id)}
-              />
+  <input
+    type="checkbox"
+    checked={selected.includes(f.id)}
+    onChange={() => toggleSelect(f.id)}
+  />
 
-              {f.type === "image" && (
-                <img
-                  src={preview}
-                  loading="lazy"          // 👈 THIS IS KEY
-                  decoding="async"
-                  style={{ width: "100%", borderRadius: 8 }}
-                  onClick={() => window.open(f.file)}
-                />
+  {f.type === "image" && (
+    <img
+      src={f.file.replace("/upload/", "/upload/w_300,q_auto/")}
+      loading="lazy"
+      decoding="async"
+      style={{ width: "100%", borderRadius: 8, cursor: "pointer" }}
+      onClick={() => window.open(f.file)}
+      onError={(e) => (e.target.style.display = "none")}
+    />
+  )}
 
-              )}
+  {f.type === "video" && (
+    <video src={f.file} controls preload="none" width="100%" />
+  )}
 
-              {f.type === "video" && (
-                <video
-  src={f.file}
-  controls
-  preload="none"
-  width="100%"
-/>
-              )}
+  {f.type === "raw" && (
+    <a href={f.file} target="_blank" rel="noreferrer">
+      Open File
+    </a>
+  )}
 
-              {f.type === "raw" && (
-                <a href={f.file} target="_blank">Open File</a>
-              )}
+  <p>{f.name}</p>
 
-              <p>{f.name}</p>
-              <button onClick={() => window.open(f.file)}>Open</button>
-              <button onClick={() => renameFile(f.id)}>Rename</button>
-              <button onClick={() => deleteFile(f.id)}>Delete</button>
-              <button onClick={() => shareFile(f.id)}>Share</button>
-            </div>
+  <button onClick={() => window.open(f.file)}>Open</button>
+  <button onClick={() => renameFile(f.id)}>Rename</button>
+  <button onClick={() => deleteFile(f.id)}>Delete</button>
+</div>
+
           );
         })}
         
