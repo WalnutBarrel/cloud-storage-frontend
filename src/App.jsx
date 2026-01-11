@@ -21,6 +21,9 @@ export default function App() {
   const [newFolder, setNewFolder] = useState("");
   const [progress, setProgress] = useState(0);
   const [totalSize, setTotalSize] = useState(0);
+  const [currentFileName, setCurrentFileName] = useState("");
+  const [uploadedCount, setUploadedCount] = useState(0);
+
 
   /* LOAD FOLDERS */
   const loadFolders = async () => {
@@ -91,9 +94,12 @@ export default function App() {
   /* MULTI UPLOAD */
   const uploadFiles = async (filesToUpload) => {
   setRemaining(filesToUpload.length);
+  setUploadedCount(0);
 
   for (let i = 0; i < filesToUpload.length; i++) {
     const f = filesToUpload[i];
+
+    setCurrentFileName(f.name);
 
     const formData = new FormData();
     formData.append("file", f);
@@ -104,20 +110,25 @@ export default function App() {
     }
 
     await axios.post(`${API}/upload/`, formData, {
-      onUploadProgress: (e) =>
-        setProgress(Math.round((e.loaded * 100) / e.total)),
+      onUploadProgress: (e) => {
+        const percent = Math.round((e.loaded * 100) / e.total);
+        setProgress(percent);
+      },
     });
 
-    // ✅ decrement remaining
+    // after one file completes
+    setUploadedCount((prev) => prev + 1);
     setRemaining((prev) => prev - 1);
+    setProgress(0);
 
-    // 🔥 FORCE UI REPAINT (THIS IS THE FIX)
+    // 🔥 allow UI repaint
     await new Promise((r) => setTimeout(r, 0));
   }
 
-  setProgress(0);
+  setCurrentFileName("");
   loadFiles(currentFolder?.id || null);
 };
+
 
 
 
@@ -257,11 +268,36 @@ export default function App() {
         />
       </div>
 
-      {remaining > 0 && (
-        <p>
-          Uploading… {remaining} file{remaining > 1 ? "s" : ""} remaining
-        </p>
-      )}
+      {currentFileName && (
+  <div style={{ marginBottom: 10 }}>
+    <strong>
+      Uploading {uploadedCount + 1} / {uploadedCount + remaining}
+    </strong>
+    <p>{currentFileName}</p>
+
+    <div
+      style={{
+        height: 8,
+        width: 300,
+        background: "#ddd",
+        borderRadius: 4,
+      }}
+    >
+      <div
+        style={{
+          height: "100%",
+          width: `${progress}%`,
+          background: "#2196f3",
+          borderRadius: 4,
+        }}
+      />
+    </div>
+
+    <p>{progress}%</p>
+    <p>{remaining} file{remaining !== 1 ? "s" : ""} remaining</p>
+  </div>
+)}
+
 
 
       {/* MULTI DOWNLOAD BUTTON */}
