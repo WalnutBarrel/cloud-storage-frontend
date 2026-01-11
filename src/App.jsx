@@ -102,18 +102,33 @@ export default function App() {
     return;
   }
 
-  for (const f of res.data) {
-    const a = document.createElement("a");
-    a.href = f.url;
-    a.download = f.name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  // Create a modal-like download panel
+  const win = window.open("", "_blank", "width=600,height=800");
 
-    // small delay so browser doesn't block downloads
-    await new Promise((r) => setTimeout(r, 300));
+  win.document.write(`
+    <html>
+      <head>
+        <title>Download Images</title>
+        <style>
+          body { font-family: Arial; padding: 20px; }
+          a { display: block; margin: 8px 0; }
+        </style>
+      </head>
+      <body>
+        <h2>Click to download images</h2>
+      </body>
+    </html>
+  `);
+
+  for (const f of res.data) {
+    win.document.body.insertAdjacentHTML(
+      "beforeend",
+      `<a href="${f.url}?fl_attachment" target="_blank">${f.name}</a>`
+    );
   }
 };
+
+
 
 
 
