@@ -351,7 +351,12 @@ export default function App() {
               )}
 
               {f.type === "video" && (
-                <video src={f.file} controls width="100%" />
+                <video
+  src={f.file}
+  controls
+  preload="none"
+  width="100%"
+/>
               )}
 
               {f.type === "raw" && (
@@ -366,7 +371,9 @@ export default function App() {
             </div>
           );
         })}
-        {visibleCount < files.length && (
+        
+      </div>
+      {visibleCount < files.length && (
           <button
             onClick={() => setVisibleCount((c) => c + 20)}
             style={{ marginTop: 20 }}
@@ -374,7 +381,6 @@ export default function App() {
             Load more ({files.length - visibleCount} remaining)
           </button>
         )}
-      </div>
     </div>
   );
 }
