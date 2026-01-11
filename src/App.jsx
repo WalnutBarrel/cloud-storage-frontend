@@ -90,31 +90,35 @@ export default function App() {
 
   /* MULTI UPLOAD */
   const uploadFiles = async (filesToUpload) => {
-    setRemaining(filesToUpload.length);
+  setRemaining(filesToUpload.length);
 
-    for (let i = 0; i < filesToUpload.length; i++) {
-      const f = filesToUpload[i];
+  for (let i = 0; i < filesToUpload.length; i++) {
+    const f = filesToUpload[i];
 
-      const formData = new FormData();
-      formData.append("file", f);
-      formData.append("name", f.name);
+    const formData = new FormData();
+    formData.append("file", f);
+    formData.append("name", f.name);
 
-      if (currentFolder) {
-        formData.append("folder", currentFolder.id);
-      }
-
-      await axios.post(`${API}/upload/`, formData, {
-        onUploadProgress: (e) =>
-          setProgress(Math.round((e.loaded * 100) / e.total)),
-      });
-
-      // 🔥 DECREASE COUNT AFTER EACH FILE
-      setRemaining((prev) => prev - 1);
+    if (currentFolder) {
+      formData.append("folder", currentFolder.id);
     }
 
-    setProgress(0);
-    loadFiles(currentFolder?.id || null);
-  };
+    await axios.post(`${API}/upload/`, formData, {
+      onUploadProgress: (e) =>
+        setProgress(Math.round((e.loaded * 100) / e.total)),
+    });
+
+    // ✅ decrement remaining
+    setRemaining((prev) => prev - 1);
+
+    // 🔥 FORCE UI REPAINT (THIS IS THE FIX)
+    await new Promise((r) => setTimeout(r, 0));
+  }
+
+  setProgress(0);
+  loadFiles(currentFolder?.id || null);
+};
+
 
 
   /* DELETE FILE */
