@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 
+
 const API = "https://cloud-storage-backend-tzvw.onrender.com/api";
+
+const formatSize = (bytes) => {
+  if (bytes === 0) return "0 MB";
+  const mb = bytes / (1024 * 1024);
+  return mb < 1024
+    ? `${mb.toFixed(2)} MB`
+    : `${(mb / 1024).toFixed(2)} GB`;
+};
+
 
 export default function App() {
   const [folders, setFolders] = useState([]);
@@ -9,6 +19,7 @@ export default function App() {
   const [currentFolder, setCurrentFolder] = useState(null);
 
   const [file, setFile] = useState(null);
+  const [totalSize, setTotalSize] = useState(0);
   const [name, setName] = useState("");
   const [newFolder, setNewFolder] = useState("");
   const [progress, setProgress] = useState(0);
@@ -27,6 +38,9 @@ export default function App() {
 
     const res = await axios.get(url);
     setFiles(res.data);
+
+    const total = res.data.reduce((sum, f) => sum + (f.size || 0), 0);
+    setTotalSize(total);
   };
 
   useEffect(() => {
@@ -84,6 +98,33 @@ export default function App() {
   return (
     <div style={{ padding: 20 }}>
       <h2>My Cloud Storage</h2>
+
+      {/* STORAGE METER */}
+      <div style={{ marginBottom: 20 }}>
+        <strong>Storage used:</strong> {formatSize(totalSize)}
+
+        <div
+          style={{
+            height: 10,
+            width: 300,
+            background: "#ddd",
+            borderRadius: 5,
+            marginTop: 5,
+          }}
+        >
+          <div
+            style={{
+              height: "100%",
+              width: `${Math.min((totalSize / (25 * 1024 * 1024 * 1024)) * 100, 100)}%`,
+              background: "#4caf50",
+              borderRadius: 5,
+            }}
+          />
+        </div>
+
+        <small>Free limit ~25 GB</small>
+      </div>
+
 
       {/* FOLDER BAR */}
       <div style={{ marginBottom: 20 }}>
