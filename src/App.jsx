@@ -132,7 +132,11 @@ export default function App() {
   loadFiles(currentFolder?.id || null);
 };
 
-
+  const accountColor = {
+  "Cloudinary-1": "#4caf50",
+  "Cloudinary-2": "#ff9800",
+  "Cloudinary-3": "#2196f3",
+};
 
 
   /* DELETE FILE */
@@ -361,6 +365,15 @@ export default function App() {
   )}
 
   <p>{f.name}</p>
+  <p
+  style={{
+    fontSize: 12,
+    color: accountColor[f.storage_account?.name] || "#666",
+  }}
+>
+  Stored in: <strong>{f.storage_account?.name}</strong>
+</p>
+
 
   <button onClick={() => window.open(f.file)}>Open</button>
   <button onClick={() => renameFile(f.id)}>Rename</button>
