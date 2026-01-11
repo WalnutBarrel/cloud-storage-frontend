@@ -62,7 +62,7 @@ function App() {
           // Cloudinary compressed preview
           const previewUrl = f.file.replace(
             "/upload/",
-            "/upload/f_auto,q_auto,w_300/"
+            "/upload/f_jpg,q_auto,w_300/"
           );
 
           return (
@@ -80,9 +80,10 @@ function App() {
 
               <p>{f.name}</p>
 
-              <a href={f.file} download>
-                Download original
-              </a>
+              <button onClick={() => window.open(f.file, "_blank")}>
+  Open / Download original
+</button>
+
             </div>
           );
         })}
