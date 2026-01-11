@@ -95,19 +95,26 @@ export default function App() {
   };
 
   const downloadAllImages = async () => {
-  const res = await axios.get(
-    `${API}/files/download-all-images/`,
-    { responseType: "blob" }
-  );
+  const res = await axios.get(`${API}/files/list-image-urls/`);
 
-  const url = window.URL.createObjectURL(new Blob([res.data]));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "all_images.zip";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  if (!res.data || res.data.length === 0) {
+    alert("No images to download");
+    return;
+  }
+
+  for (const f of res.data) {
+    const a = document.createElement("a");
+    a.href = f.url;
+    a.download = f.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    // small delay so browser doesn't block downloads
+    await new Promise((r) => setTimeout(r, 300));
+  }
 };
+
 
 
   /* MULTI UPLOAD */
