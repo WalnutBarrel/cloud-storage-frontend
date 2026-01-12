@@ -36,7 +36,16 @@ export default function App() {
     setFolders(res.data);
   };
 
-  const downloadAllImagesAsZip = async () => {
+  const fetchWithTimeout = (url, timeout = 20000) => {
+  return Promise.race([
+    fetch(url, { cache: "no-store" }),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Timeout")), timeout)
+    ),
+  ]);
+};
+
+const downloadAllImagesAsZip = async () => {
   const res = await axios.get(`${API}/files/list-image-urls/`);
 
   if (!res.data || res.data.length === 0) {
@@ -47,24 +56,32 @@ export default function App() {
   const zip = new JSZip();
   const folder = zip.folder("images");
 
+  const CONCURRENCY = 3; // 🔥 increase to 4 if PC is strong
   let done = 0;
 
-  for (const f of res.data) {
-    try {
-      const response = await fetch(f.url);
-      const blob = await response.blob();
-      folder.file(f.name, blob);
+  for (let i = 0; i < res.data.length; i += CONCURRENCY) {
+    const batch = res.data.slice(i, i + CONCURRENCY);
 
-      done++;
-      console.log(`Added ${done}/${res.data.length}`);
-    } catch (err) {
-      console.error("Failed to add:", f.name);
-    }
+    await Promise.all(
+      batch.map(async (f) => {
+        try {
+          const response = await fetchWithTimeout(f.url, 20000);
+          const blob = await response.blob();
+          folder.file(f.name, blob);
+
+          done++;
+          console.log(`Added ${done}/${res.data.length}`);
+        } catch (err) {
+          console.warn("Skipped:", f.name);
+        }
+      })
+    );
   }
 
   const zipBlob = await zip.generateAsync({ type: "blob" });
   saveAs(zipBlob, "all_images.zip");
 };
+
 
 
   /* LOAD FILES */
