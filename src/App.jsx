@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
+
 
 const API = "https://cloud-storage-backend-tzvw.onrender.com/api";
 
@@ -32,6 +35,37 @@ export default function App() {
     const res = await axios.get(`${API}/folders/`);
     setFolders(res.data);
   };
+
+  const downloadAllImagesAsZip = async () => {
+  const res = await axios.get(`${API}/files/list-image-urls/`);
+
+  if (!res.data || res.data.length === 0) {
+    alert("No images found");
+    return;
+  }
+
+  const zip = new JSZip();
+  const folder = zip.folder("images");
+
+  let done = 0;
+
+  for (const f of res.data) {
+    try {
+      const response = await fetch(f.url);
+      const blob = await response.blob();
+      folder.file(f.name, blob);
+
+      done++;
+      console.log(`Added ${done}/${res.data.length}`);
+    } catch (err) {
+      console.error("Failed to add:", f.name);
+    }
+  }
+
+  const zipBlob = await zip.generateAsync({ type: "blob" });
+  saveAs(zipBlob, "all_images.zip");
+};
+
 
   /* LOAD FILES */
   const loadFiles = async (folderId = null) => {
@@ -343,9 +377,10 @@ export default function App() {
 
 
       {/* MULTI DOWNLOAD BUTTON */}
-      <button onClick={downloadAllImages}>
-  Download All Images
+      <button onClick={downloadAllImagesAsZip}>
+  Download All Images (ZIP)
 </button>
+
 
       {selected.length > 0 && (
   <div style={{ marginBottom: 10 }}>
