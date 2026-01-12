@@ -78,7 +78,10 @@ const downloadAllImagesAsZip = async () => {
     );
   }
 
-  const zipBlob = await zip.generateAsync({ type: "blob" });
+  const zipBlob = await zip.generateAsync({
+  type: "blob",
+  compression: "STORE" // 🔥 no compression, MUCH faster
+});
   saveAs(zipBlob, "all_images.zip");
 };
 
