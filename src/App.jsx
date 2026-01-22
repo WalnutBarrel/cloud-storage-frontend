@@ -79,21 +79,47 @@ export default function App() {
   =========================== */
 
   const generateFastZips = async () => {
-    try {
-      setZipLoading(true);
-      setZipLinks([]);
+  try {
+    setZipLoading(true);
 
-      const res = await axios.post(
-        `${API}/files/create-cloudinary-zip/`
-      );
+    const res = await axios.post(
+      `${API}/files/create-cloudinary-zip/`
+    );
 
-      setZipLinks(res.data.zips || []);
-    } catch {
-      alert("Failed to generate ZIPs");
-    } finally {
-      setZipLoading(false);
+    const zips = res.data.zips || [];
+
+    if (zips.length === 0) {
+      alert("No ZIPs returned");
+      return;
     }
-  };
+
+    alert(
+      "Your browser may ask to allow multiple downloads.\nClick ALLOW once."
+    );
+
+    // 🔥 Auto-download all ZIPs
+    for (let i = 0; i < zips.length; i++) {
+      const zip = zips[i];
+
+      const a = document.createElement("a");
+      a.href = zip.download_url;
+      a.download = `${zip.account}.zip`; // filename
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      // small delay to avoid Chrome blocking
+      await new Promise((r) => setTimeout(r, 800));
+    }
+
+  } catch (err) {
+    console.error(err);
+    alert("Failed to generate ZIPs");
+  } finally {
+    setZipLoading(false);
+  }
+};
+
 
   /* ===========================
      FILE ACTIONS
@@ -159,8 +185,9 @@ export default function App() {
       {/* FAST ZIP */}
       <hr />
       <button onClick={generateFastZips} disabled={zipLoading}>
-        {zipLoading ? "Preparing ZIPs..." : "Download ZIPs (FAST)"}
-      </button>
+  {zipLoading ? "Preparing ZIPs..." : "Fast Download All Images (ZIP)"}
+</button>
+
 
       {zipLinks.length > 0 && (
         <div style={{ marginTop: 10 }}>
