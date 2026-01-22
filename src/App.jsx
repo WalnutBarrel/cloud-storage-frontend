@@ -19,10 +19,41 @@ export default function App() {
   const [newFolder, setNewFolder] = useState("");
   const [totalSize, setTotalSize] = useState(0);
   const [visibleCount, setVisibleCount] = useState(20);
+  const [dragging, setDragging] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentFile, setCurrentFile] = useState("");
 
   // FAST ZIP (Cloudinary)
   const [zipLinks, setZipLinks] = useState([]);
   const [zipLoading, setZipLoading] = useState(false);
+
+  const uploadFiles = async (filesToUpload) => {
+  for (let i = 0; i < filesToUpload.length; i++) {
+    const f = filesToUpload[i];
+    setCurrentFile(f.name);
+
+    const formData = new FormData();
+    formData.append("file", f);
+    formData.append("name", f.name);
+
+    if (currentFolder) {
+      formData.append("folder", currentFolder.id);
+    }
+
+    await axios.post(`${API}/upload/`, formData, {
+      onUploadProgress: (e) => {
+        const percent = Math.round((e.loaded * 100) / e.total);
+        setProgress(percent);
+      },
+    });
+
+    setProgress(0);
+  }
+
+  setCurrentFile("");
+  loadFiles(currentFolder?.id || null);
+};
+
 
   /* ===========================
      LOAD DATA
@@ -181,6 +212,63 @@ export default function App() {
         />
         <button onClick={createFolder}>Create</button>
       </div>
+
+        {/* UPLOAD */}
+<div
+  onDragOver={(e) => {
+    e.preventDefault();
+    setDragging(true);
+  }}
+  onDragLeave={() => setDragging(false)}
+  onDrop={(e) => {
+    e.preventDefault();
+    setDragging(false);
+    uploadFiles([...e.dataTransfer.files]);
+  }}
+  style={{
+    border: "2px dashed #999",
+    padding: 25,
+    textAlign: "center",
+    background: dragging ? "#eee" : "transparent",
+    marginBottom: 20,
+  }}
+>
+  <p>
+    Drag & drop files here
+    {currentFolder ? ` (to ${currentFolder.name})` : ""}
+  </p>
+
+  <input
+    type="file"
+    multiple
+    onChange={(e) => uploadFiles([...e.target.files])}
+  />
+</div>
+
+{currentFile && (
+  <div style={{ marginBottom: 15 }}>
+    <p>Uploading: <b>{currentFile}</b></p>
+    <div
+      style={{
+        height: 6,
+        width: 300,
+        background: "#ddd",
+        borderRadius: 4,
+      }}
+    >
+      <div
+        style={{
+          height: "100%",
+          width: `${progress}%`,
+          background: "#2196f3",
+          borderRadius: 4,
+        }}
+      />
+    </div>
+    <p>{progress}%</p>
+  </div>
+)}
+
 
       {/* FAST ZIP */}
       <hr />
