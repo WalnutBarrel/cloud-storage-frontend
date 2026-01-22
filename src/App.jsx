@@ -6,9 +6,7 @@ const API = "https://cloud-storage-backend-tzvw.onrender.com/api";
 const formatSize = (bytes) => {
   if (!bytes) return "0 MB";
   const mb = bytes / (1024 * 1024);
-  return mb < 1024
-    ? `${mb.toFixed(2)} MB`
-    : `${(mb / 1024).toFixed(2)} GB`;
+  return mb < 1024 ? `${mb.toFixed(2)} MB` : `${(mb / 1024).toFixed(2)} GB`;
 };
 
 export default function App() {
@@ -19,52 +17,16 @@ export default function App() {
   const [newFolder, setNewFolder] = useState("");
   const [totalSize, setTotalSize] = useState(0);
   const [visibleCount, setVisibleCount] = useState(20);
+
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentFile, setCurrentFile] = useState("");
 
-  // FAST ZIP (Cloudinary)
-  const [zipLinks, setZipLinks] = useState([]);
   const [zipLoading, setZipLoading] = useState(false);
 
-  const uploadFiles = async (filesToUpload) => {
-  const MAX_PARALLEL = 3; // 🔥 increase to 4 if internet is strong
-  let index = 0;
-
-  const uploadSingle = async (file) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("name", file.name);
-
-    if (currentFolder) {
-      formData.append("folder", currentFolder.id);
-    }
-
-    await axios.post(`${API}/upload/`, formData, {
-      onUploadProgress: (e) => {
-        const percent = Math.round((e.loaded * 100) / e.total);
-        setProgress(percent);
-        setCurrentFile(file.name);
-      },
-    });
-  };
-
-  while (index < filesToUpload.length) {
-    const batch = filesToUpload.slice(index, index + MAX_PARALLEL);
-    await Promise.all(batch.map(uploadSingle));
-    index += MAX_PARALLEL;
-  }
-
-  setProgress(0);
-  setCurrentFile("");
-  loadFiles(currentFolder?.id || null);
-};
-
-
-
-  /* ===========================
+  /* =========================
      LOAD DATA
-  =========================== */
+  ========================= */
 
   const loadFolders = async () => {
     const res = await axios.get(`${API}/folders/`);
@@ -79,7 +41,7 @@ export default function App() {
     const res = await axios.get(url);
     setFiles(res.data);
 
-    const total = res.data.reduce((sum, f) => sum + (f.size || 0), 0);
+    const total = res.data.reduce((s, f) => s + (f.size || 0), 0);
     setTotalSize(total);
 
     setSelected([]);
@@ -91,9 +53,42 @@ export default function App() {
     loadFiles();
   }, []);
 
-  /* ===========================
-     CREATE FOLDER
-  =========================== */
+  /* =========================
+     UPLOAD (PARALLEL)
+  ========================= */
+
+  const uploadFiles = async (filesToUpload) => {
+    const MAX_PARALLEL = 3;
+    let index = 0;
+
+    const uploadSingle = async (file) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("name", file.name);
+      if (currentFolder) formData.append("folder", currentFolder.id);
+
+      await axios.post(`${API}/upload/`, formData, {
+        onUploadProgress: (e) => {
+          setProgress(Math.round((e.loaded * 100) / e.total));
+          setCurrentFile(file.name);
+        },
+      });
+    };
+
+    while (index < filesToUpload.length) {
+      const batch = filesToUpload.slice(index, index + MAX_PARALLEL);
+      await Promise.all(batch.map(uploadSingle));
+      index += MAX_PARALLEL;
+    }
+
+    setProgress(0);
+    setCurrentFile("");
+    loadFiles(currentFolder?.id || null);
+  };
+
+  /* =========================
+     FOLDERS
+  ========================= */
 
   const createFolder = async () => {
     if (!newFolder) return;
@@ -102,9 +97,9 @@ export default function App() {
     loadFolders();
   };
 
-  /* ===========================
+  /* =========================
      SELECTION
-  =========================== */
+  ========================= */
 
   const toggleSelect = (id) => {
     setSelected((prev) =>
@@ -112,86 +107,60 @@ export default function App() {
     );
   };
 
-  /* ===========================
+  const bulkDelete = async () => {
+    if (!confirm(`Delete ${selected.length} files?`)) return;
+    for (let id of selected) {
+      await axios.delete(`${API}/files/${id}/`);
+    }
+    loadFiles(currentFolder?.id || null);
+  };
+
+  const bulkDownload = async () => {
+    const res = await axios.post(
+      `${API}/files/download-zip/`,
+      { files: selected },
+      { responseType: "blob" }
+    );
+
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "files.zip";
+    a.click();
+  };
+
+  /* =========================
      FAST ZIP (CLOUDINARY)
-  =========================== */
+  ========================= */
 
   const generateFastZips = async () => {
-  try {
-    setZipLoading(true);
+    try {
+      setZipLoading(true);
+      const res = await axios.post(
+        `${API}/files/create-cloudinary-zip/`
+      );
 
-    const res = await axios.post(
-      `${API}/files/create-cloudinary-zip/`
-    );
-
-    const zips = res.data.zips || [];
-
-    if (zips.length === 0) {
-      alert("No ZIPs returned");
-      return;
+      alert("Allow multiple downloads once.");
+      for (let z of res.data.zips || []) {
+        const a = document.createElement("a");
+        a.href = z.download_url;
+        a.download = `${z.account}.zip`;
+        a.click();
+        await new Promise((r) => setTimeout(r, 800));
+      }
+    } finally {
+      setZipLoading(false);
     }
-
-    alert(
-      "Your browser may ask to allow multiple downloads.\nClick ALLOW once."
-    );
-
-    // 🔥 Auto-download all ZIPs
-    for (let i = 0; i < zips.length; i++) {
-      const zip = zips[i];
-
-      const a = document.createElement("a");
-      a.href = zip.download_url;
-      a.download = `${zip.account}.zip`; // filename
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-
-      // small delay to avoid Chrome blocking
-      await new Promise((r) => setTimeout(r, 800));
-    }
-
-  } catch (err) {
-    console.error(err);
-    alert("Failed to generate ZIPs");
-  } finally {
-    setZipLoading(false);
-  }
-};
-
-
-  /* ===========================
-     FILE ACTIONS
-  =========================== */
-
-  const deleteFile = async (id) => {
-    if (!confirm("Delete file?")) return;
-    await axios.delete(`${API}/files/${id}/`);
-    loadFiles(currentFolder?.id || null);
   };
 
-  const renameFile = async (id) => {
-    const newName = prompt("New name?");
-    if (!newName) return;
-    await axios.put(`${API}/files/${id}/rename/`, { name: newName });
-    loadFiles(currentFolder?.id || null);
-  };
-
-  const downloadFile = (url) => {
-    window.open(`${url}?fl_attachment`, "_blank");
-  };
-
-  /* ===========================
+  /* =========================
      UI
-  =========================== */
+  ========================= */
 
   return (
-    <div style={{ padding: 20 }}>
+    <div style={{ padding: 16 }}>
       <h2>My Cloud Storage</h2>
-
-      {/* STORAGE */}
-      <p>
-        <strong>Used:</strong> {formatSize(totalSize)}
-      </p>
+      <p><b>Used:</b> {formatSize(totalSize)}</p>
 
       {/* FOLDERS */}
       <div style={{ marginBottom: 10 }}>
@@ -213,120 +182,127 @@ export default function App() {
       {/* CREATE FOLDER */}
       <div style={{ marginBottom: 15 }}>
         <input
-          placeholder="New folder"
+          placeholder="📁 New folder"
           value={newFolder}
           onChange={(e) => setNewFolder(e.target.value)}
         />
         <button onClick={createFolder}>Create</button>
       </div>
 
-        {/* UPLOAD */}
-<div
-  onDragOver={(e) => {
-    e.preventDefault();
-    setDragging(true);
-  }}
-  onDragLeave={() => setDragging(false)}
-  onDrop={(e) => {
-    e.preventDefault();
-    setDragging(false);
-    uploadFiles([...e.dataTransfer.files]);
-  }}
-  style={{
-    border: "2px dashed #aaa",
-    padding: 30,
-    borderRadius: 10,
-    background: dragging ? "#f0f7ff" : "#fafafa",
-    textAlign: "center",
-    marginBottom: 20,
-  }}
->
-  <h4>📤 Upload Files</h4>
-  <p>
-    Drag & drop files here
-    {currentFolder && ` (to ${currentFolder.name})`}
-  </p>
-
-  <input
-    type="file"
-    multiple
-    accept="image/*,video/*,.pdf,.zip"
-    onChange={(e) => uploadFiles([...e.target.files])}
-  />
-</div>
-
-{currentFile && (
-  <div style={{ marginBottom: 20 }}>
-    <p>Uploading: <b>{currentFile}</b></p>
-    <div style={{ height: 6, width: 320, background: "#ddd", borderRadius: 4 }}>
+      {/* UPLOAD */}
       <div
-        style={{
-          height: "100%",
-          width: `${progress}%`,
-          background: "#4caf50",
-          borderRadius: 4,
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
         }}
-      />
-    </div>
-    <small>{progress}%</small>
-  </div>
-)}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          uploadFiles([...e.dataTransfer.files]);
+        }}
+        style={{
+          border: "2px dashed #aaa",
+          padding: 25,
+          borderRadius: 10,
+          background: dragging ? "#eef6ff" : "#fafafa",
+          textAlign: "center",
+          marginBottom: 20,
+        }}
+      >
+        <h4>📤 Upload</h4>
+        <input
+          type="file"
+          multiple
+          accept="image/*,video/*,.pdf"
+          onChange={(e) => uploadFiles([...e.target.files])}
+        />
+      </div>
 
+      {currentFile && (
+        <div style={{ marginBottom: 10 }}>
+          Uploading <b>{currentFile}</b> ({progress}%)
+          <div style={{ height: 6, background: "#ddd" }}>
+            <div
+              style={{
+                height: "100%",
+                width: `${progress}%`,
+                background: "#4caf50",
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* FAST ZIP */}
-      <hr />
       <button onClick={generateFastZips} disabled={zipLoading}>
-  {zipLoading ? "Preparing ZIPs..." : "Fast Download All Images (ZIP)"}
-</button>
+        {zipLoading ? "Preparing ZIPs..." : "⚡ Fast Download All Images"}
+      </button>
 
-
-      {zipLinks.length > 0 && (
-        <div style={{ marginTop: 10 }}>
-          <h4>ZIP Downloads</h4>
-          {zipLinks.map((z, i) => (
-            <p key={i}>
-              <a href={z.download_url} target="_blank" rel="noreferrer">
-                ⬇ {z.account} ({z.count} images)
-              </a>
-            </p>
-          ))}
+      {/* BULK BAR */}
+      {selected.length > 0 && (
+        <div
+          style={{
+            position: "sticky",
+            bottom: 10,
+            background: "#fff",
+            padding: 10,
+            marginTop: 15,
+            borderRadius: 8,
+            boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
+          }}
+        >
+          <b>{selected.length} selected</b><br />
+          <button onClick={bulkDownload}>⬇ ZIP</button>
+          <button style={{ color: "red" }} onClick={bulkDelete}>
+            🗑 Delete
+          </button>
         </div>
       )}
 
       <hr />
 
-      {/* FILE LIST */}
-      <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-        {files.slice(0, visibleCount).map((f) => (
-          <div key={f.id} style={{ width: 220 }}>
-            <input
-              type="checkbox"
-              checked={selected.includes(f.id)}
-              onChange={() => toggleSelect(f.id)}
-            />
+      {/* FILE GRID (MOBILE FRIENDLY) */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+          gap: 16,
+        }}
+      >
+        {files.slice(0, visibleCount).map((f) => {
+          const active = selected.includes(f.id);
+          return (
+            <div
+              key={f.id}
+              onClick={() => toggleSelect(f.id)}
+              style={{
+                border: active ? "3px solid #2196f3" : "1px solid #ccc",
+                borderRadius: 8,
+                padding: 6,
+                cursor: "pointer",
+              }}
+            >
+              {f.type === "image" && (
+                <img
+                  src={f.file.replace("/upload/", "/upload/w_300,q_auto/")}
+                  style={{
+                    width: "100%",
+                    borderRadius: 6,
+                    opacity: active ? 0.7 : 1,
+                  }}
+                />
+              )}
 
-            {f.type === "image" && (
-              <img
-                src={f.file.replace("/upload/", "/upload/w_300,q_auto/")}
-                style={{ width: "100%", borderRadius: 6 }}
-                onClick={() => window.open(f.file)}
-              />
-            )}
+              {f.type === "video" && (
+                <video src={f.file} controls width="100%" />
+              )}
 
-            {f.type === "video" && (
-              <video src={f.file} controls width="100%" />
-            )}
-
-            <p>{f.name}</p>
-            <p style={{ fontSize: 12 }}>
-              Stored in <b>{f.storage_account?.name}</b>
-            </p>
-
-            <button onClick={() => downloadFile(f.file)}>Download</button>
-            <button onClick={() => renameFile(f.id)}>Rename</button>
-            <button onClick={() => deleteFile(f.id)}>Delete</button>
-          </div>
-        ))}
+              <p style={{ fontSize: 13 }}>{f.name}</p>
+              <small>📦 {f.storage_account?.name}</small>
+            </div>
+          );
+        })}
       </div>
 
       {visibleCount < files.length && (
