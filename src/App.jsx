@@ -21,11 +21,11 @@ export default function App() {
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentFile, setCurrentFile] = useState("");
-  const [zipLoading, setZipLoading] = useState(false);
 
-  /* =========================
-     LOAD DATA
-  ========================= */
+  const [zipLoading, setZipLoading] = useState(false);
+  const [zipLinks, setZipLinks] = useState([]);
+
+  /* ================= LOAD ================= */
 
   const loadFolders = async () => {
     const res = await axios.get(`${API}/folders/`);
@@ -40,9 +40,7 @@ export default function App() {
     const res = await axios.get(url);
     setFiles(res.data);
 
-    const total = res.data.reduce((s, f) => s + (f.size || 0), 0);
-    setTotalSize(total);
-
+    setTotalSize(res.data.reduce((s, f) => s + (f.size || 0), 0));
     setSelected([]);
     setVisibleCount(20);
   };
@@ -52,21 +50,19 @@ export default function App() {
     loadFiles();
   }, []);
 
-  /* =========================
-     UPLOAD (PARALLEL)
-  ========================= */
+  /* ================= UPLOAD ================= */
 
   const uploadFiles = async (filesToUpload) => {
     const MAX_PARALLEL = 3;
     let index = 0;
 
-    const uploadSingle = async (file) => {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("name", file.name);
-      if (currentFolder) formData.append("folder", currentFolder.id);
+    const uploadOne = async (file) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("name", file.name);
+      if (currentFolder) fd.append("folder", currentFolder.id);
 
-      await axios.post(`${API}/upload/`, formData, {
+      await axios.post(`${API}/upload/`, fd, {
         onUploadProgress: (e) => {
           setProgress(Math.round((e.loaded * 100) / e.total));
           setCurrentFile(file.name);
@@ -75,8 +71,9 @@ export default function App() {
     };
 
     while (index < filesToUpload.length) {
-      const batch = filesToUpload.slice(index, index + MAX_PARALLEL);
-      await Promise.all(batch.map(uploadSingle));
+      await Promise.all(
+        filesToUpload.slice(index, index + MAX_PARALLEL).map(uploadOne)
+      );
       index += MAX_PARALLEL;
     }
 
@@ -85,9 +82,7 @@ export default function App() {
     loadFiles(currentFolder?.id || null);
   };
 
-  /* =========================
-     FOLDERS
-  ========================= */
+  /* ================= FOLDERS ================= */
 
   const createFolder = async () => {
     if (!newFolder) return;
@@ -98,20 +93,16 @@ export default function App() {
 
   const deleteFolder = async (folder) => {
     if (!confirm(`Delete folder "${folder.name}" and all files inside?`)) return;
-    await axios.delete(`${API}/folders/${folder.id}/delete/`);
+    await axios.delete(`${API}/folders/${folder.id}/`);
     setCurrentFolder(null);
     loadFolders();
     loadFiles();
   };
 
-  /* =========================
-     SELECTION
-  ========================= */
+  /* ================= FILE SELECTION ================= */
 
   const toggleSelect = (id) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setSelected((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   };
 
   const bulkDelete = async () => {
@@ -136,72 +127,37 @@ export default function App() {
     a.click();
   };
 
-  /* =========================
-     FAST ZIP (CLOUDINARY)
-  ========================= */
+  /* ================= FAST CLOUDINARY ZIP ================= */
 
   const generateFastZips = async () => {
     try {
       setZipLoading(true);
-      const res = await axios.post(`${API}/files/create-cloudinary-zip/`);
+      setZipLinks([]);
 
-      alert("Allow multiple downloads once.");
-      for (let z of res.data.zips || []) {
-        const a = document.createElement("a");
-        a.href = z.download_url;
-        a.download = `${z.account}.zip`;
-        a.click();
-        await new Promise((r) => setTimeout(r, 800));
-      }
+      const res = await axios.post(`${API}/files/create-cloudinary-zip/`);
+      setZipLinks(res.data.zips || []);
     } finally {
       setZipLoading(false);
     }
   };
 
-  /* =========================
-     UI
-  ========================= */
+  /* ================= UI ================= */
 
   return (
-    <div
-      style={{
-        padding: 16,
-        maxWidth: 1200,      // 🔥 FIX grid width
-        margin: "0 auto",    // 🔥 center on desktop
-      }}
-    >
+    <div style={{ padding: 16, maxWidth: 1200, margin: "0 auto" }}>
       <h2>My Cloud Storage</h2>
       <p><b>Used:</b> {formatSize(totalSize)}</p>
 
       {/* FOLDERS */}
-      <div style={{ marginBottom: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         <button onClick={() => loadFiles()}>Home</button>
 
         {folders.map((f) => (
-          <div
-            key={f.id}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              border: "1px solid #444",
-              borderRadius: 6,
-              padding: "4px 6px",
-            }}
-          >
-            <button
-              onClick={() => {
-                setCurrentFolder(f);
-                loadFiles(f.id);
-              }}
-            >
+          <div key={f.id} style={{ display: "flex", gap: 4 }}>
+            <button onClick={() => { setCurrentFolder(f); loadFiles(f.id); }}>
               {f.name}
             </button>
-            <button
-              onClick={() => deleteFolder(f)}
-              style={{ color: "red", fontWeight: "bold" }}
-              title="Delete folder"
-            >
+            <button onClick={() => deleteFolder(f)} style={{ color: "red" }}>
               ✕
             </button>
           </div>
@@ -209,7 +165,7 @@ export default function App() {
       </div>
 
       {/* CREATE FOLDER */}
-      <div style={{ marginBottom: 15 }}>
+      <div style={{ marginTop: 10 }}>
         <input
           placeholder="📁 New folder"
           value={newFolder}
@@ -220,10 +176,7 @@ export default function App() {
 
       {/* UPLOAD */}
       <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={(e) => {
           e.preventDefault();
@@ -233,10 +186,9 @@ export default function App() {
         style={{
           border: "2px dashed #aaa",
           padding: 25,
-          borderRadius: 10,
-          background: dragging ? "#11253b" : "#292020",
+          marginTop: 15,
+          background: dragging ? "#eef6ff" : "#fafafa",
           textAlign: "center",
-          marginBottom: 20,
         }}
       >
         <h4>📤 Upload</h4>
@@ -249,41 +201,42 @@ export default function App() {
       </div>
 
       {currentFile && (
-        <div style={{ marginBottom: 10 }}>
+        <div>
           Uploading <b>{currentFile}</b> ({progress}%)
           <div style={{ height: 6, background: "#ddd" }}>
-            <div
-              style={{
-                height: "100%",
-                width: `${progress}%`,
-                background: "#4caf50",
-              }}
-            />
+            <div style={{ height: "100%", width: `${progress}%`, background: "#4caf50" }} />
           </div>
         </div>
       )}
 
       {/* FAST ZIP */}
-      <button onClick={generateFastZips} disabled={zipLoading}>
-        {zipLoading ? "Preparing ZIPs..." : "⚡ Fast Download All Images"}
+      <button onClick={generateFastZips} disabled={zipLoading} style={{ marginTop: 15 }}>
+        {zipLoading ? "Preparing ZIPs..." : "⚡ Fast Download All (Cloudinary)"}
       </button>
+
+      {zipLinks.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <h4>📦 ZIP Downloads</h4>
+          {zipLinks.map((z, i) => (
+            <a
+              key={i}
+              href={z.download_url}
+              target="_blank"
+              rel="noreferrer"
+              style={{ display: "block", marginBottom: 6 }}
+            >
+              ⬇ {z.account} — {z.type} ({z.count})
+            </a>
+          ))}
+        </div>
+      )}
 
       {/* BULK BAR */}
       {selected.length > 0 && (
-        <div
-          style={{
-            position: "sticky",
-            bottom: 10,
-            background: "#fff",
-            padding: 10,
-            marginTop: 15,
-            borderRadius: 8,
-            boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
-          }}
-        >
+        <div style={{ position: "sticky", bottom: 10, background: "#fff", padding: 10 }}>
           <b>{selected.length} selected</b><br />
           <button onClick={bulkDownload}>⬇ ZIP</button>
-          <button style={{ color: "red" }} onClick={bulkDelete}>🗑 Delete</button>
+          <button onClick={bulkDelete} style={{ color: "red" }}>🗑 Delete</button>
         </div>
       )}
 
@@ -295,7 +248,6 @@ export default function App() {
           display: "grid",
           gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
           gap: 16,
-          width: "100%",
         }}
       >
         {files.slice(0, visibleCount).map((f) => {
@@ -306,26 +258,14 @@ export default function App() {
               onClick={() => toggleSelect(f.id)}
               style={{
                 border: active ? "3px solid #2196f3" : "1px solid #ccc",
-                borderRadius: 8,
                 padding: 6,
                 cursor: "pointer",
               }}
             >
               {f.type === "image" && (
-                <img
-                  src={f.file.replace("/upload/", "/upload/w_320,q_auto/")}
-                  style={{
-                    width: "100%",
-                    borderRadius: 6,
-                    opacity: active ? 0.7 : 1,
-                  }}
-                />
+                <img src={f.file.replace("/upload/", "/upload/w_320,q_auto/")} width="100%" />
               )}
-
-              {f.type === "video" && (
-                <video src={f.file} controls width="100%" />
-              )}
-
+              {f.type === "video" && <video src={f.file} controls width="100%" />}
               <p style={{ fontSize: 13 }}>{f.name}</p>
               <small>📦 {f.storage_account?.name}</small>
             </div>
@@ -334,10 +274,7 @@ export default function App() {
       </div>
 
       {visibleCount < files.length && (
-        <button
-          onClick={() => setVisibleCount((c) => c + 20)}
-          style={{ marginTop: 20 }}
-        >
+        <button onClick={() => setVisibleCount((c) => c + 20)}>
           Load more ({files.length - visibleCount})
         </button>
       )}
