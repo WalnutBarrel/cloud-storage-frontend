@@ -21,7 +21,6 @@ export default function App() {
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentFile, setCurrentFile] = useState("");
-
   const [zipLoading, setZipLoading] = useState(false);
 
   /* =========================
@@ -97,6 +96,14 @@ export default function App() {
     loadFolders();
   };
 
+  const deleteFolder = async (folder) => {
+    if (!confirm(`Delete folder "${folder.name}" and all files inside?`)) return;
+    await axios.delete(`${API}/folders/${folder.id}/`);
+    setCurrentFolder(null);
+    loadFolders();
+    loadFiles();
+  };
+
   /* =========================
      SELECTION
   ========================= */
@@ -136,9 +143,7 @@ export default function App() {
   const generateFastZips = async () => {
     try {
       setZipLoading(true);
-      const res = await axios.post(
-        `${API}/files/create-cloudinary-zip/`
-      );
+      const res = await axios.post(`${API}/files/create-cloudinary-zip/`);
 
       alert("Allow multiple downloads once.");
       for (let z of res.data.zips || []) {
@@ -158,24 +163,48 @@ export default function App() {
   ========================= */
 
   return (
-    <div style={{ padding: 16 }}>
+    <div
+      style={{
+        padding: 16,
+        maxWidth: 1200,      // 🔥 FIX grid width
+        margin: "0 auto",    // 🔥 center on desktop
+      }}
+    >
       <h2>My Cloud Storage</h2>
       <p><b>Used:</b> {formatSize(totalSize)}</p>
 
       {/* FOLDERS */}
-      <div style={{ marginBottom: 10 }}>
+      <div style={{ marginBottom: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
         <button onClick={() => loadFiles()}>Home</button>
+
         {folders.map((f) => (
-          <button
+          <div
             key={f.id}
-            style={{ marginLeft: 8 }}
-            onClick={() => {
-              setCurrentFolder(f);
-              loadFiles(f.id);
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              border: "1px solid #444",
+              borderRadius: 6,
+              padding: "4px 6px",
             }}
           >
-            {f.name}
-          </button>
+            <button
+              onClick={() => {
+                setCurrentFolder(f);
+                loadFiles(f.id);
+              }}
+            >
+              {f.name}
+            </button>
+            <button
+              onClick={() => deleteFolder(f)}
+              style={{ color: "red", fontWeight: "bold" }}
+              title="Delete folder"
+            >
+              ✕
+            </button>
+          </div>
         ))}
       </div>
 
@@ -254,20 +283,19 @@ export default function App() {
         >
           <b>{selected.length} selected</b><br />
           <button onClick={bulkDownload}>⬇ ZIP</button>
-          <button style={{ color: "red" }} onClick={bulkDelete}>
-            🗑 Delete
-          </button>
+          <button style={{ color: "red" }} onClick={bulkDelete}>🗑 Delete</button>
         </div>
       )}
 
       <hr />
 
-      {/* FILE GRID (MOBILE FRIENDLY) */}
+      {/* FILE GRID */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
           gap: 16,
+          width: "100%",
         }}
       >
         {files.slice(0, visibleCount).map((f) => {
@@ -285,7 +313,7 @@ export default function App() {
             >
               {f.type === "image" && (
                 <img
-                  src={f.file.replace("/upload/", "/upload/w_300,q_auto/")}
+                  src={f.file.replace("/upload/", "/upload/w_320,q_auto/")}
                   style={{
                     width: "100%",
                     borderRadius: 6,
