@@ -28,13 +28,13 @@ export default function App() {
   const [zipLoading, setZipLoading] = useState(false);
 
   const uploadFiles = async (filesToUpload) => {
-  for (let i = 0; i < filesToUpload.length; i++) {
-    const f = filesToUpload[i];
-    setCurrentFile(f.name);
+  const MAX_PARALLEL = 3; // 🔥 increase to 4 if internet is strong
+  let index = 0;
 
+  const uploadSingle = async (file) => {
     const formData = new FormData();
-    formData.append("file", f);
-    formData.append("name", f.name);
+    formData.append("file", file);
+    formData.append("name", file.name);
 
     if (currentFolder) {
       formData.append("folder", currentFolder.id);
@@ -44,15 +44,22 @@ export default function App() {
       onUploadProgress: (e) => {
         const percent = Math.round((e.loaded * 100) / e.total);
         setProgress(percent);
+        setCurrentFile(file.name);
       },
     });
+  };
 
-    setProgress(0);
+  while (index < filesToUpload.length) {
+    const batch = filesToUpload.slice(index, index + MAX_PARALLEL);
+    await Promise.all(batch.map(uploadSingle));
+    index += MAX_PARALLEL;
   }
 
+  setProgress(0);
   setCurrentFile("");
   loadFiles(currentFolder?.id || null);
 };
+
 
 
   /* ===========================
@@ -226,46 +233,42 @@ export default function App() {
     uploadFiles([...e.dataTransfer.files]);
   }}
   style={{
-    border: "2px dashed #999",
-    padding: 25,
+    border: "2px dashed #aaa",
+    padding: 30,
+    borderRadius: 10,
+    background: dragging ? "#f0f7ff" : "#fafafa",
     textAlign: "center",
-    background: dragging ? "#eee" : "transparent",
     marginBottom: 20,
   }}
 >
+  <h4>📤 Upload Files</h4>
   <p>
     Drag & drop files here
-    {currentFolder ? ` (to ${currentFolder.name})` : ""}
+    {currentFolder && ` (to ${currentFolder.name})`}
   </p>
 
   <input
     type="file"
     multiple
+    accept="image/*,video/*,.pdf,.zip"
     onChange={(e) => uploadFiles([...e.target.files])}
   />
 </div>
 
 {currentFile && (
-  <div style={{ marginBottom: 15 }}>
+  <div style={{ marginBottom: 20 }}>
     <p>Uploading: <b>{currentFile}</b></p>
-    <div
-      style={{
-        height: 6,
-        width: 300,
-        background: "#ddd",
-        borderRadius: 4,
-      }}
-    >
+    <div style={{ height: 6, width: 320, background: "#ddd", borderRadius: 4 }}>
       <div
         style={{
           height: "100%",
           width: `${progress}%`,
-          background: "#2196f3",
+          background: "#4caf50",
           borderRadius: 4,
         }}
       />
     </div>
-    <p>{progress}%</p>
+    <small>{progress}%</small>
   </div>
 )}
 
