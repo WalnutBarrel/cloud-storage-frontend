@@ -234,7 +234,7 @@ export default function App() {
           border: "2px dashed #aaa",
           padding: 25,
           borderRadius: 10,
-          background: dragging ? "#eef6ff" : "#fafafa",
+          background: dragging ? "#11253b" : "#292020",
           textAlign: "center",
           marginBottom: 20,
         }}
