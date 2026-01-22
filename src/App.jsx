@@ -98,7 +98,7 @@ export default function App() {
 
   const deleteFolder = async (folder) => {
     if (!confirm(`Delete folder "${folder.name}" and all files inside?`)) return;
-    await axios.delete(`${API}/folders/${folder.id}/`);
+    await axios.delete(`${API}/folders/${folder.id}/delete/`);
     setCurrentFolder(null);
     loadFolders();
     loadFiles();
